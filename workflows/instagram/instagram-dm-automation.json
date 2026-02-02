@@ -344,7 +344,7 @@
           "parameters": [
             {
               "name": "Authorization",
-              "value": "Bearer IGAAWfVkrkZBjxBZAGJPbG5KcTZAtUzJVV1lBanNHcjMzMnRGUFlzenJLdW1QNlVKbGxRRkFrRU13THlOQUVSQVZAsZAVBjUWRRX0x6YS0yT1RTYXRuTk5Gd0lMTWthell2ODVUamF6ZAUNxMTROY2Ruck11alFGQUVyV1JXNXozM25RMAZDZD"
+              "value": "Bearer YOUR_INSTAGRAM_ACCESS_TOKEN_HERE"
             },
             {
               "name": "Content-Type",

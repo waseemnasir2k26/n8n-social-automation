@@ -142,7 +142,7 @@
           "parameters": [
             {
               "name": "Authorization",
-              "value": "Bearer papi.f067dd44-a11a-4f23-aa65-f0cc0ccde84b.7jwOWhibM0sDX24O3EVe56IpfhKKrWC9"
+              "value": "Bearer YOUR_REVE_AI_API_KEY_HERE"
             },
             {
               "name": "Content-Type",
