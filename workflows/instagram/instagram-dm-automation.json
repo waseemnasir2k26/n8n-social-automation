@@ -1,0 +1,828 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "5690caf5-2338-40db-9d66-ffa79055cca2",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -144,
+        96
+      ],
+      "id": "1d69af96-0ede-48ee-88fd-63d6750d0274",
+      "name": "Instagram Webhook1",
+      "webhookId": "5690caf5-2338-40db-9d66-ffa79055cca2"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "17e963c8-41aa-4d3c-a871-a38bfca3943e",
+              "leftValue": "={{ $json.query['hub.mode'] }}",
+              "rightValue": "subscribe",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "920265af-020b-494a-aa29-8e970fba2f5a",
+              "leftValue": "={{ $json.query['hub.verify_token'] }}",
+              "rightValue": "skynetlabs",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        48,
+        0
+      ],
+      "id": "062bce0c-53e0-4368-a27e-d7d977972dea",
+      "name": "Check Verification1"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.query['hub.challenge'] }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        -16
+      ],
+      "id": "f816b470-805d-4000-843e-5551d88baee5",
+      "name": "Respond to Webhook1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const webhookData = $input.item.json;\n\n// Check if this is a verification request (no body/entry)\nif (!webhookData.body?.entry?.[0]?.messaging?.[0]) {\n  return {\n    json: {\n      isVerification: true,\n      skipProcessing: true\n    }\n  };\n}\n\nconst messaging = webhookData.body.entry[0].messaging[0];\n\n// Skip echo messages (messages sent by the page itself)\nif (messaging.message?.is_echo) {\n  return {\n    json: {\n      isEcho: true,\n      skipProcessing: true\n    }\n  };\n}\n\nconst message = messaging.message?.text || '';\nconst senderId = messaging.sender?.id || '';\nconst recipientId = messaging.recipient?.id || '';\n\n// Skip if no sender ID\nif (!senderId) {\n  return {\n    json: {\n      skipProcessing: true,\n      reason: 'No sender ID'\n    }\n  };\n}\n\nconst customerName = messaging.sender?.name || `Customer ${senderId.substring(0, 8)}`;\n\nlet imageUrl = null;\nconst attachments = messaging.message?.attachments || [];\n\nif (attachments.length > 0) {\n  const imageAttachment = attachments.find(att => att.type === 'image' || att.type === 'photo');\n  imageUrl = imageAttachment?.payload?.url || imageAttachment?.payload?.src || null;\n}\n\nif (!imageUrl && messaging.message?.image_url) {\n  imageUrl = messaging.message.image_url;\n}\n\nif (!imageUrl && messaging.message?.media) {\n  imageUrl = messaging.message.media.url || messaging.message.media.src || null;\n}\n\n// Skip if no message content and no image\nif (!message && !imageUrl) {\n  return {\n    json: {\n      skipProcessing: true,\n      reason: 'No message content'\n    }\n  };\n}\n\nreturn {\n  json: {\n    chatInput: message || (imageUrl ? '[Image sent]' : ''),\n    sessionId: senderId,\n    senderId: senderId,\n    recipientId: recipientId,\n    customerName: customerName,\n    imageUrl: imageUrl,\n    hasImage: imageUrl !== null,\n    skipProcessing: false,\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        16,
+        192
+      ],
+      "id": "47eeddd1-51ee-4b74-8ea4-9a14ccf21f36",
+      "name": "Transform Instagram Data1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "skip-check",
+              "leftValue": "={{ $json.skipProcessing }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        208,
+        192
+      ],
+      "id": "4993d0c5-bf63-46c7-bf9b-949bbaa3e4f8",
+      "name": "Should Process?"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "EVENT_RECEIVED",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        448,
+        80
+      ],
+      "id": "db3edb73-5b18-4317-88d0-f33961403206",
+      "name": "Respond OK (Skip)"
+    },
+    {
+      "parameters": {
+        "jsCode": "const sessionId = $input.item.json.sessionId;\nconst humanTakeoverKey = `human_takeover_${sessionId}`;\nconst staticData = $getWorkflowStaticData('global');\nconst humanTakenOver = staticData[humanTakeoverKey] === true;\n\nreturn {\n  json: {\n    ...$input.item.json,\n    humanTakenOver: humanTakenOver\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        240
+      ],
+      "id": "b50d0c8b-a180-4de5-ba96-63b8f7cc37bd",
+      "name": "Check Human Takeover1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "human-check",
+              "leftValue": "={{ $json.humanTakenOver }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        592,
+        240
+      ],
+      "id": "e3e5420e-405a-48c6-a1f0-22c5609d2eaf",
+      "name": "AI Should Respond?1"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "EVENT_RECEIVED",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        560,
+        464
+      ],
+      "id": "5787a87c-ea1c-4fe4-946c-37a7e3895c91",
+      "name": "Respond OK (Human)"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.chatInput }}",
+        "options": {
+          "systemMessage": "You are a car sales rep at Cardiva Motors USA. Text like a friend - casual, short.\n\nCRITICAL RULE: ONLY ONE MESSAGE AT A TIME. Never send multiple messages or questions together. Wait for customer reply before asking next question.\n\nRULES:\n- ONE message per reply. Never combine questions.\n- Ask questions FIRST before showing any cars\n- Use search_vehicles tool ONLY after you have budget + credit info\n- Never guess prices\n\nFLOW (one step per message, wait for reply):\n1. \"Hey! What brand are you looking for?\"\n   [WAIT FOR REPLY]\n2. \"Nice! What monthly payment works for you?\"\n   [WAIT FOR REPLY]\n3. \"What's your credit score range? 720+ gets best rates\"\n   [WAIT FOR REPLY]\n4. NOW search and show 1-2 matches\n   [WAIT FOR REPLY]\n5. \"Send me your driver license photo to get started\"\n   [WAIT FOR REPLY]\n6. \"Got it! What's your full name and phone number?\"\n   [WAIT FOR REPLY]\n7. [HANDOFF_READY]\n\nIf customer wants human: [HANDOFF_REQUESTED]\n\nNEVER combine steps. ONE question or statement per message only."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.6,
+      "position": [
+        784,
+        32
+      ],
+      "id": "5b41ff66-e582-4dcd-bd5b-0899f50e2ff1",
+      "name": "AI Agent1"
+    },
+    {
+      "parameters": {
+        "model": "gpt-4-turbo",
+        "options": {
+          "frequencyPenalty": 0.3,
+          "maxTokens": 250,
+          "presencePenalty": 0.3,
+          "temperature": 0.7
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1,
+      "position": [
+        784,
+        384
+      ],
+      "id": "7a280b8e-fda1-483d-8412-7202d4a1763c",
+      "name": "OpenAI Chat Model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "ZSkZ8sWeP1j6la2l",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.sessionId }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        880,
+        288
+      ],
+      "id": "1df969af-bafc-4769-8cae-71a679c01941",
+      "name": "Conversation Memory1"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1UEbt6liYsNco4uJiwd73jcEsZmT_W5ncUiNl1dntM9Y",
+          "mode": "list",
+          "cachedResultName": "n8n DM",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1UEbt6liYsNco4uJiwd73jcEsZmT_W5ncUiNl1dntM9Y/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Database",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1UEbt6liYsNco4uJiwd73jcEsZmT_W5ncUiNl1dntM9Y/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        1024,
+        416
+      ],
+      "id": "0045e1f0-4aa6-43b0-9368-6b739771054c",
+      "name": "search_vehicles",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "ltHUw9QEdxzWj4gG",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const inputData = $('AI Should Respond?1').item.json;\nconst aiOutput = $input.item.json.output || '';\n\nconst isHandoffReady = aiOutput.includes('[HANDOFF_READY]');\nconst isHandoffRequested = aiOutput.includes('[HANDOFF_REQUESTED]');\nconst needsHandoff = isHandoffReady || isHandoffRequested;\n\nconst cleanMessage = aiOutput\n  .replace('[HANDOFF_READY]', '')\n  .replace('[HANDOFF_REQUESTED]', '')\n  .trim();\n\nconst customerId = inputData.senderId;\nconst customerName = inputData.customerName || `Customer ${customerId.substring(0, 8)}`;\nconst instagramChatLink = `https://www.instagram.com/direct/t/${customerId}`;\nconst licenseImageUrl = inputData.imageUrl || null;\n\nreturn {\n  json: {\n    output: cleanMessage,\n    senderId: inputData.senderId,\n    recipientId: inputData.recipientId,\n    sessionId: inputData.senderId,\n    customerName: customerName,\n    instagramChatLink: instagramChatLink,\n    licenseImageUrl: licenseImageUrl,\n    needsHandoff: needsHandoff,\n    handoffType: isHandoffReady ? 'READY' : (isHandoffRequested ? 'REQUESTED' : 'NONE'),\n    customerMessage: inputData.chatInput\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        224
+      ],
+      "id": "d965cd0f-a4de-4dbf-a098-528728055180",
+      "name": "Check Handoff Needed1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "handoff-check",
+              "leftValue": "={{ $json.needsHandoff }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1296,
+        224
+      ],
+      "id": "6ed1c3d8-b306-421f-a41d-67209bbac685",
+      "name": "Needs Handoff?1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.instagram.com/v24.0/{{ $json.recipientId }}/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer IGAAWfVkrkZBjxBZAGJPbG5KcTZAtUzJVV1lBanNHcjMzMnRGUFlzenJLdW1QNlVKbGxRRkFrRU13THlOQUVSQVZAsZAVBjUWRRX0x6YS0yT1RTYXRuTk5Gd0lMTWthell2ODVUamF6ZAUNxMTROY2Ruck11alFGQUVyV1JXNXozM25RMAZDZD"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  recipient: {\n    id: $json.senderId\n  },\n  message: {\n    text: $json.output.substring(0, 1000)\n  }\n}) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1520,
+        224
+      ],
+      "id": "d9176f34-a75b-498d-a042-404024b79aae",
+      "name": "Send to Instagram1"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "EVENT_RECEIVED",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1744,
+        224
+      ],
+      "id": "596d7c2e-50b4-4965-83c8-50a3a1b9d8bb",
+      "name": "Respond OK (Sent)"
+    },
+    {
+      "parameters": {
+        "chatId": "5767851905",
+        "text": "=🚨 *Cardiva Motors - Customer Handoff*\n\n👤 *Customer:* {{ $json.customerName }}\n📱 *Instagram:* {{ $json.instagramChatLink }}\n*Type:* {{ $json.handoffType }}\n\n📋 *AI Response:*\n{{ $json.output.substring(0, 500) }}\n\n{{ $json.licenseImageUrl ? '📸 *Driver License Photo:* ' + $json.licenseImageUrl : '⚠️ *No license photo received*' }}\n\n💬 *Last Customer Message:*\n{{ $json.customerMessage }}\n\n✅ *Action Required:* {{ $json.handoffType === 'READY' ? 'Customer ready - Review details and contact for credit check' : 'Customer requested human agent' }}\n\n_AI has been automatically disabled for this conversation._",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1520,
+        400
+      ],
+      "id": "1a2574fa-c82a-42a9-809a-ebcda1974a15",
+      "name": "Notify Telegram1",
+      "webhookId": "29241343-b73c-4217-8d17-c66002a1119f",
+      "credentials": {
+        "telegramApi": {
+          "id": "XSMr0hwbx3YA9lQM",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const sessionId = $input.item.json.sessionId;\nconst humanTakeoverKey = `human_takeover_${sessionId}`;\nconst staticData = $getWorkflowStaticData('global');\nstaticData[humanTakeoverKey] = true;\n\nreturn { json: $input.item.json };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1744,
+        400
+      ],
+      "id": "f167b0eb-53f7-4ae8-b368-0aab7e9ed0e4",
+      "name": "Mark Human Takeover1"
+    },
+    {
+      "parameters": {
+        "operation": "clear",
+        "documentId": {
+          "__rl": true,
+          "value": "1UEbt6liYsNco4uJiwd73jcEsZmT_W5ncUiNl1dntM9Y",
+          "mode": "list",
+          "cachedResultName": "n8n DM",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1UEbt6liYsNco4uJiwd73jcEsZmT_W5ncUiNl1dntM9Y/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Database",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1UEbt6liYsNco4uJiwd73jcEsZmT_W5ncUiNl1dntM9Y/edit#gid=0"
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        448,
+        848
+      ],
+      "id": "051ce3f5-b9ad-4282-ba83-0988d8752f1e",
+      "name": "Clear Existing Data",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "ltHUw9QEdxzWj4gG",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://154.12.244.176:670/api/VehicleApi/SearchVehicles",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "=Ab3F9xY7K2mP6qZ1.R8tV4sL0W9xY2bN3.X1vR8tM5pQ7kZ4jL"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"page\": 1\n}",
+        "options": {
+          "allowUnauthorizedCerts": true,
+          "timeout": 30000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        640,
+        848
+      ],
+      "id": "d79af6ad-63d5-4c2b-9fd5-dcb0e426a1c9",
+      "name": "Fetch All Vehicles from API"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst vehicles = input.data;\n\nif (!Array.isArray(vehicles) || vehicles.length === 0) {\n  console.log('No vehicles found in API response');\n  return [{ json: { error: 'No vehicles found', skip: true } }];\n}\n\nconsole.log(`Processing ${vehicles.length} vehicles from API`);\n\nconst results = [];\n\nfor (let i = 0; i < vehicles.length; i++) {\n  const v = vehicles[i];\n  \n  const year = (v.makeYear || '').toString();\n  const brand = (v.brandName || '').toString();\n  const model = (v.modelName || '').toString();\n  \n  if (!year || !brand || !model) {\n    console.warn(`Skipping vehicle ${i}: missing year/brand/model`);\n    continue;\n  }\n  \n  const monthlyPayment = parseFloat(v.priceWithTax || v.priceNoTax || 0);\n  const termMonths = parseInt(v.leaseMonths || 36);\n  const msrp = parseFloat(v.msrp || 0);\n  \n  results.push({\n    json: {\n      vehicleID: (v.vehicleID || '').toString(),\n      year: year,\n      brand: brand,\n      model: model,\n      fullName: v.vehicleName || `${year} ${brand} ${model}`,\n      variant: v.variantName || '',\n      status: v.conditionName || 'Available',\n      fuelType: v.fuelTypeName || '',\n      msrp: msrp.toFixed(2),\n      monthlyPayment: monthlyPayment.toFixed(2),\n      termMonths: termMonths.toString(),\n      totalLeaseCost: (monthlyPayment * termMonths).toFixed(2),\n      milesPerYear: (v.milesPerYear || '').toString(),\n      downPayment: (v.downPayment || 0).toString(),\n      brokerFee: (v.brokerFee || 0).toString(),\n      stockNumber: v.registrationNo || '',\n      lastUpdated: new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })\n    }\n  });\n}\n\nconsole.log(`Returning ${results.length} vehicles`);\n\nif (results.length === 0) {\n  return [{ json: { error: 'No valid vehicles after transformation', skip: true } }];\n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        832,
+        848
+      ],
+      "id": "059dc0b0-e9fa-4b14-a0bd-e19635680688",
+      "name": "Transform Data for Sheets",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1UEbt6liYsNco4uJiwd73jcEsZmT_W5ncUiNl1dntM9Y",
+          "mode": "list",
+          "cachedResultName": "n8n DM",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1UEbt6liYsNco4uJiwd73jcEsZmT_W5ncUiNl1dntM9Y/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Database",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1UEbt6liYsNco4uJiwd73jcEsZmT_W5ncUiNl1dntM9Y/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {}
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1008,
+        848
+      ],
+      "id": "7e59e296-e247-4ff4-b49d-5beddd2c86c6",
+      "name": "Append Vehicles to Sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "ltHUw9QEdxzWj4gG",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst totalVehicles = items.length;\n\nconst brandCounts = {};\nitems.forEach(item => {\n  const brand = item.json.brand;\n  if (brand) brandCounts[brand] = (brandCounts[brand] || 0) + 1;\n});\n\nconst brandSummary = Object.entries(brandCounts)\n  .sort((a, b) => b[1] - a[1])\n  .map(([brand, count]) => `${brand}: ${count}`)\n  .join(', ');\n\nconst summary = `Sync Complete: ${totalVehicles} vehicles\\nBrands: ${brandSummary}`;\n\nconsole.log(summary);\n\nreturn {\n  json: {\n    success: true,\n    totalVehicles: totalVehicles,\n    brandBreakdown: brandCounts,\n    summary: summary,\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        864
+      ],
+      "id": "c854f18d-2259-46f2-8e52-9202fd4c7b4b",
+      "name": "Create Sync Summary"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        256,
+        848
+      ],
+      "id": "a0a8ff37-b3e8-4c20-bbac-398c1574ed37",
+      "name": "Schedule Trigger"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Instagram Webhook1": {
+      "main": [
+        [
+          {
+            "node": "Check Verification1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Transform Instagram Data1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Verification1": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transform Instagram Data1": {
+      "main": [
+        [
+          {
+            "node": "Should Process?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Should Process?": {
+      "main": [
+        [
+          {
+            "node": "Check Human Takeover1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond OK (Skip)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Human Takeover1": {
+      "main": [
+        [
+          {
+            "node": "AI Should Respond?1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Should Respond?1": {
+      "main": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond OK (Human)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent1": {
+      "main": [
+        [
+          {
+            "node": "Check Handoff Needed1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Conversation Memory1": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "search_vehicles": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Handoff Needed1": {
+      "main": [
+        [
+          {
+            "node": "Needs Handoff?1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs Handoff?1": {
+      "main": [
+        [
+          {
+            "node": "Send to Instagram1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Notify Telegram1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send to Instagram1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send to Instagram1": {
+      "main": [
+        [
+          {
+            "node": "Respond OK (Sent)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify Telegram1": {
+      "main": [
+        [
+          {
+            "node": "Mark Human Takeover1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Clear Existing Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Existing Data": {
+      "main": [
+        [
+          {
+            "node": "Fetch All Vehicles from API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch All Vehicles from API": {
+      "main": [
+        [
+          {
+            "node": "Transform Data for Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transform Data for Sheets": {
+      "main": [
+        [
+          {
+            "node": "Append Vehicles to Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append Vehicles to Sheet": {
+      "main": [
+        [
+          {
+            "node": "Create Sync Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "c985ec30-b0b1-438e-a28c-3fea1021e35e",
+  "meta": {
+    "instanceId": "6b1b59e3e7fed22fb922d87e72c495a7f1f7b80204568e3eb17b2f07f25f3150"
+  },
+  "id": "CEvrFLEDKIEb1PUd",
+  "tags": []
+}

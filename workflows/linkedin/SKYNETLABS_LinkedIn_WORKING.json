@@ -1,0 +1,579 @@
+{
+  "name": "SkynetJoe LinkedIn AI - WORKING",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      },
+      "id": "0ce7cd08-b437-43a7-b61d-03c61058b13f",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        5216,
+        5168
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://techcrunch.com/category/artificial-intelligence/feed/",
+        "options": {
+          "ignoreSSL": true
+        }
+      },
+      "id": "12938ed9-f99f-4cd6-80cd-d62633a12a71",
+      "name": "TechCrunch AI",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [
+        5424,
+        5056
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://venturebeat.com/category/ai/feed/",
+        "options": {
+          "ignoreSSL": true
+        }
+      },
+      "id": "dbe8f71e-583a-49ab-b087-69f8f9a4d7e4",
+      "name": "VentureBeat AI",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [
+        5424,
+        5264
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "id": "2a32798d-66b8-4b18-ba26-ac82e44312b0",
+      "name": "Merge Feeds",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        5648,
+        5168
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get all items and filter out duplicates using workflow static data\nconst items = $input.all();\n\nif (items.length === 0) {\n  return [];\n}\n\n// Get published posts from workflow static data (persistent storage)\nconst staticData = $getWorkflowStaticData('global');\nif (!staticData.publishedPosts) {\n  staticData.publishedPosts = [];\n}\n\nconst publishedUrls = new Set(staticData.publishedPosts.map(p => p.url));\n\n// Filter out already published items\nconst newItems = items.filter(item => {\n  const url = item.json.link || item.json.url || '';\n  return url && !publishedUrls.has(url);\n});\n\nif (newItems.length === 0) {\n  // All items already published\n  return [];\n}\n\n// Pick random item from first 10 NEW items\nconst randomIndex = Math.floor(Math.random() * Math.min(newItems.length, 10));\nconst item = newItems[randomIndex].json;\n\nconst normalized = {\n  title: (item.title || '').slice(0, 300),\n  description: (item.contentSnippet || item.description || '').replace(/<[^>]*>/g, '').slice(0, 500),\n  url: item.link || item.url || '',\n  source: item.creator || item.author || 'Unknown'\n};\n\nif (!normalized.title || !normalized.url) {\n  return [];\n}\n\nreturn [{ json: normalized }];"
+      },
+      "id": "43700250-3871-473b-81b4-558172608f51",
+      "name": "Pick One Random Item",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5872,
+        5168
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4o-mini"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "You are a content editor. Score this news for LinkedIn viral potential.\n\nRESPOND WITH JSON ONLY:\n{\n  \"score\": 0-10,\n  \"angle\": \"unique angle or hot take for this news\",\n  \"hook\": \"attention-grabbing first line idea\",\n  \"imagePrompt\": \"simple prompt for professional tech image, no text, abstract futuristic style, digital art, vibrant colors, high quality\"\n}",
+              "role": "system"
+            },
+            {
+              "content": "=Title: {{ $json.title }}\n\nDescription: {{ $json.description }}\n\nSource URL: {{ $json.url }}"
+            }
+          ]
+        },
+        "options": {
+          "maxTokens": 200,
+          "temperature": 0.3
+        }
+      },
+      "id": "425fec83-9e05-4e8e-8381-47c19f13258c",
+      "name": "AI Score",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        6000,
+        5168
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "AevMS99UaDEkMJw8",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse score and extract all data\nconst response = $input.first().json;\nconst originalItem = $('Pick One Random Item').item.json;\n\nlet score = 0;\nlet angle = '';\nlet hook = '';\nlet imagePrompt = 'futuristic AI technology concept, professional, minimalist, blue and purple tones, abstract digital art';\n\ntry {\n  let content = response.message?.content || response.text || '';\n  content = content.replace(/```json\\n?/g, '').replace(/```/g, '').trim();\n  const parsed = JSON.parse(content);\n  score = parseInt(parsed.score) || 0;\n  angle = parsed.angle || '';\n  hook = parsed.hook || '';\n  imagePrompt = parsed.imagePrompt || imagePrompt;\n} catch (e) {\n  score = 6;\n}\n\n// Only continue if score >= 6\nif (score >= 6) {\n  return [{ json: { ...originalItem, score, angle, hook, imagePrompt } }];\n} else {\n  return [];\n}"
+      },
+      "id": "629a2ce6-106a-41b1-b232-f8e0a3a06dbf",
+      "name": "Check Score >= 6",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6304,
+        5168
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.reve.com/v1/image/create",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer papi.f067dd44-a11a-4f23-aa65-f0cc0ccde84b.7jwOWhibM0sDX24O3EVe56IpfhKKrWC9"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"prompt\": \"{{ $json.imagePrompt }}\"\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 120000
+        }
+      },
+      "id": "12c1784b-e1dc-4ba8-8e61-dc5b83d55cc7",
+      "name": "Generate Image (Reve AI)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        6464,
+        5328
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "GPT-4o"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "You are an expert LinkedIn content strategist for SkynetJoe, an AI automation expert who helps businesses automate with AI.\n\nYour mission: Transform news into viral, engaging LinkedIn posts that drive comments, shares, and meaningful discussions.\n\n═══════════════════════════════════════\nCORE RULES\n═══════════════════════════════════════\n\n1. HOOK (First 3 lines = EVERYTHING)\n   - Start with a pattern interrupt: shocking stat, bold question, or relatable pain\n   - Create curiosity gap - hint at value before revealing\n   - Examples:\n     • \"I just watched AI complete a 3-hour task in 47 seconds. 🤯\"\n     • \"Unpopular opinion: Most people are using AI wrong.\"\n     • \"This changes everything for [industry]...\"\n\n2. STRUCTURE (The 3-3-3 Rule)\n   - First 3 lines: Grab attention (hook)\n   - Next 3 sections: Provide value (insights)\n   - Final 3 lines: Drive action (CTA)\n\n3. FORMATTING\n   - Short paragraphs (2-3 lines MAX)\n   - Strategic white space between sections\n   - Use → for key insights\n   - Use \"quotes\" for power statements\n\n4. EMOJI STRATEGY 🎯\n   - 1-2 emojis per paragraph MAX\n   - Purposeful placement: 📊 data, 💡 insights, 🚀 growth, ⚡ speed, 🔥 hot take\n   - Hook gets an emoji to catch scrolling eyes\n   - Professional yet friendly - not emoji overload\n\n5. ENGAGEMENT BOOSTERS\n   - Ask specific questions (not yes/no)\n   - Add personal opinion or hot take\n   - Include specific numbers/data (3x more credible)\n   - Use \"you\" and \"your\" to make it personal\n\n6. LINKS & CREDIBILITY\n   - Include source link naturally: \"Full story here: [URL]\"\n   - Add context the reader needs\n   - Mention the company/tool by name\n\n═══════════════════════════════════════\nPOST STRUCTURE TEMPLATE\n═══════════════════════════════════════\n\n🔥 [HOOK - Bold statement or question]\n\n[1-2 sentences expanding on the hook]\n\n💡 Here's what's happening:\n→ [Key point 1]\n→ [Key point 2]\n→ [Key point 3]\n\n🎯 Why this matters:\n[2-3 sentences on real-world impact]\n\n\"[Power quote or key takeaway]\"\n\n🔗 Full story: [SOURCE URL]\n\n💪 Quick take: [Your personal opinion or prediction]\n\n👉 Want help automating YOUR business with AI? Check out www.skynetjoe.com\n\nWhat's your take on this? Drop a comment below 👇\n\n#Hashtag1 #Hashtag2 #AIAutomation #WorkflowAutomation #FutureOfWork\n\n═══════════════════════════════════════\nHASHTAG RULES (Exactly 5)\n═══════════════════════════════════════\n- 2 topic-specific (#Anthropic, #Claude, #OpenAI, #ChatGPT)\n- 2 service-related (#AIAutomation #WorkflowAutomation)\n- 1 broad reach (#FutureOfWork OR #AI OR #TechNews)\n\n═══════════════════════════════════════\nVOICE & TONE\n═══════════════════════════════════════\n- Conversational but credible (like talking to a smart colleague)\n- Enthusiastic without hype (genuine excitement, not salesy)\n- Helpful-first (value before asking)\n- Authentic personality (let the human show)\n\n═══════════════════════════════════════\nWORD COUNT: 150-200 words (sweet spot for engagement)\n═══════════════════════════════════════",
+              "role": "system"
+            },
+            {
+              "content": "=Create a viral LinkedIn post about:\n\n══════════════════════════\nTOPIC: {{ $json.title }}\n══════════════════════════\nDETAILS: {{ $json.description }}\n══════════════════════════\nSUGGESTED ANGLE: {{ $json.angle }}\n══════════════════════════\nHOOK IDEA: {{ $json.hook }}\n══════════════════════════\nSOURCE LINK: {{ $json.url }}\n══════════════════════════\n\nREMEMBER:\n✓ Start with an irresistible hook\n✓ Include the source link naturally\n✓ Add your hot take or prediction\n✓ End with engagement question + CTA to www.skynetjoe.com\n✓ Exactly 5 hashtags at the end\n✓ Keep it 150-200 words"
+            }
+          ]
+        },
+        "options": {
+          "maxTokens": 700,
+          "temperature": 0.85
+        }
+      },
+      "id": "2727a1ce-20a2-429b-9c19-f3f22005f3b7",
+      "name": "AI Write Post",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        6464,
+        5088
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "AevMS99UaDEkMJw8",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "id": "42619edd-cf6b-4abe-86d6-62681177c6dd",
+      "name": "Merge Post + Image",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        6688,
+        5168
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// FIXED: Correct extraction for Reve AI response format\n// Reve AI returns: { data: [{ url: '...', b64_json: null }], meta: { usage: { tokens_used: X } } }\n\nconst items = $input.all();\nconst postData = items[0]?.json || {};\nconst imageResponse = items[1]?.json || {};\n\n// Get post text\nconst postText = postData.message?.content || postData.text || '';\n\n// DEBUG: Log the full Reve AI response to see what we're getting\nconsole.log('=== REVE AI FULL RESPONSE ===');\nconsole.log(JSON.stringify(imageResponse, null, 2));\n\nlet imageUrl = '';\n\n// Check for errors first\nif (imageResponse.error) {\n  console.log('Reve AI Error:', imageResponse.error);\n} else {\n  // CORRECT Reve AI format: data[0].url\n  if (imageResponse.data && Array.isArray(imageResponse.data) && imageResponse.data[0]) {\n    imageUrl = imageResponse.data[0].url || '';\n    console.log('Found URL in data[0].url:', imageUrl);\n  }\n  \n  // Fallback checks for other possible formats\n  if (!imageUrl) {\n    imageUrl = \n      imageResponse.url ||\n      imageResponse.image_url ||\n      imageResponse.imageUrl ||\n      imageResponse.output?.url ||\n      imageResponse.result?.url ||\n      (imageResponse.images && imageResponse.images[0]) ||\n      '';\n    if (imageUrl) console.log('Found URL in fallback:', imageUrl);\n  }\n}\n\n// Validate URL format\nif (imageUrl && typeof imageUrl === 'string') {\n  imageUrl = imageUrl.trim();\n  if (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://')) {\n    console.log('Invalid URL format (not http/https):', imageUrl);\n    imageUrl = '';\n  }\n} else {\n  imageUrl = '';\n}\n\nconst hasValidImage = !!(imageUrl && imageUrl.length > 10);\nconsole.log('=== FINAL RESULT ===');\nconsole.log('hasValidImage:', hasValidImage);\nconsole.log('imageUrl:', imageUrl || 'NONE');\nconsole.log('postText length:', postText.length);\n\nreturn [{\n  json: {\n    postText: postText,\n    imageUrl: imageUrl,\n    hasValidImage: hasValidImage\n  }\n}];"
+      },
+      "id": "0e810549-ad8e-410b-8d46-9f7bd2b05675",
+      "name": "Prepare LinkedIn Post",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6848,
+        5168
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-valid-image",
+              "leftValue": "={{ $json.hasValidImage }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-has-image-node",
+      "name": "Has Valid Image?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        7008,
+        5168
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.imageUrl }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "id": "15af0cf5-08ae-497a-989d-20694a0ccca3",
+      "name": "Download Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        7200,
+        5068
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Combine post text with downloaded image binary\nconst downloadedImage = $input.first();\nconst preparedPost = $('Prepare LinkedIn Post').item.json;\n\nconsole.log('=== DOWNLOAD IMAGE RESULT ===');\nconsole.log('Has binary:', !!(downloadedImage.binary && Object.keys(downloadedImage.binary).length > 0));\nif (downloadedImage.binary) {\n  console.log('Binary keys:', Object.keys(downloadedImage.binary));\n}\n\n// Check if download was successful\nif (downloadedImage.binary && Object.keys(downloadedImage.binary).length > 0) {\n  return [{\n    json: {\n      postText: preparedPost.postText\n    },\n    binary: downloadedImage.binary\n  }];\n} else {\n  // Download failed, post without image\n  console.log('Download failed, posting without image');\n  return [{\n    json: {\n      postText: preparedPost.postText\n    }\n  }];\n}"
+      },
+      "id": "08809ca0-d890-4cdb-8daf-ece3859cfa81",
+      "name": "Combine Post + Binary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7368,
+        5068
+      ]
+    },
+    {
+      "parameters": {
+        "person": "fbb-chs7WH",
+        "text": "={{ $json.postText }}",
+        "shareMediaCategory": "IMAGE",
+        "additionalFields": {}
+      },
+      "id": "linkedin-with-image",
+      "name": "Post to LinkedIn (With Image)",
+      "type": "n8n-nodes-base.linkedIn",
+      "typeVersion": 1,
+      "position": [
+        7536,
+        5068
+      ],
+      "credentials": {
+        "linkedInOAuth2Api": {
+          "id": "o3O2LKk7w9epRLKv",
+          "name": "LinkedIn account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "person": "fbb-chs7WH",
+        "text": "={{ $json.postText }}",
+        "additionalFields": {}
+      },
+      "id": "linkedin-no-image",
+      "name": "Post to LinkedIn (Text Only)",
+      "type": "n8n-nodes-base.linkedIn",
+      "typeVersion": 1,
+      "position": [
+        7200,
+        5268
+      ],
+      "credentials": {
+        "linkedInOAuth2Api": {
+          "id": "o3O2LKk7w9epRLKv",
+          "name": "LinkedIn account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Save published post to workflow static data (prevents duplicates)\nconst staticData = $getWorkflowStaticData('global');\n\nif (!staticData.publishedPosts) {\n  staticData.publishedPosts = [];\n}\n\n// Get the original item data\nconst originalItem = $('Check Score >= 6').item.json;\n\n// Add to published list\nstaticData.publishedPosts.push({\n  url: originalItem.url,\n  title: originalItem.title,\n  publishedAt: new Date().toISOString()\n});\n\n// Keep only last 500 posts to prevent memory issues\nif (staticData.publishedPosts.length > 500) {\n  staticData.publishedPosts = staticData.publishedPosts.slice(-500);\n}\n\nreturn $input.all();"
+      },
+      "id": "save-db-1",
+      "name": "Save to Database",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7704,
+        5068
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Save published post to workflow static data (prevents duplicates)\nconst staticData = $getWorkflowStaticData('global');\n\nif (!staticData.publishedPosts) {\n  staticData.publishedPosts = [];\n}\n\n// Get the original item data\nconst originalItem = $('Check Score >= 6').item.json;\n\n// Add to published list\nstaticData.publishedPosts.push({\n  url: originalItem.url,\n  title: originalItem.title,\n  publishedAt: new Date().toISOString()\n});\n\n// Keep only last 500 posts to prevent memory issues\nif (staticData.publishedPosts.length > 500) {\n  staticData.publishedPosts = staticData.publishedPosts.slice(-500);\n}\n\nreturn $input.all();"
+      },
+      "id": "save-db-2",
+      "name": "Save to Database 2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7368,
+        5268
+      ]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "TechCrunch AI",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "VentureBeat AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TechCrunch AI": {
+      "main": [
+        [
+          {
+            "node": "Merge Feeds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "VentureBeat AI": {
+      "main": [
+        [
+          {
+            "node": "Merge Feeds",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Feeds": {
+      "main": [
+        [
+          {
+            "node": "Pick One Random Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick One Random Item": {
+      "main": [
+        [
+          {
+            "node": "AI Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Score": {
+      "main": [
+        [
+          {
+            "node": "Check Score >= 6",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Score >= 6": {
+      "main": [
+        [
+          {
+            "node": "AI Write Post",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Generate Image (Reve AI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Image (Reve AI)": {
+      "main": [
+        [
+          {
+            "node": "Merge Post + Image",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "AI Write Post": {
+      "main": [
+        [
+          {
+            "node": "Merge Post + Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Post + Image": {
+      "main": [
+        [
+          {
+            "node": "Prepare LinkedIn Post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare LinkedIn Post": {
+      "main": [
+        [
+          {
+            "node": "Has Valid Image?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Valid Image?": {
+      "main": [
+        [
+          {
+            "node": "Download Image",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Post to LinkedIn (Text Only)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Image": {
+      "main": [
+        [
+          {
+            "node": "Combine Post + Binary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Post + Binary": {
+      "main": [
+        [
+          {
+            "node": "Post to LinkedIn (With Image)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to LinkedIn (With Image)": {
+      "main": [
+        [
+          {
+            "node": "Save to Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to LinkedIn (Text Only)": {
+      "main": [
+        [
+          {
+            "node": "Save to Database 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7fdb4387c93c5d04359a0f59d624abf43ecc71a092ce0428bcbbc3ceec6f2c36"
+  }
+}

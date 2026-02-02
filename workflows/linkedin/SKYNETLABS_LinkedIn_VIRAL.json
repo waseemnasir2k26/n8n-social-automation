@@ -1,0 +1,579 @@
+{
+  "name": "SkynetJoe LinkedIn VIRAL System",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      },
+      "id": "0ce7cd08-b437-43a7-b61d-03c61058b13f",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        5216,
+        5168
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://techcrunch.com/category/artificial-intelligence/feed/",
+        "options": {
+          "ignoreSSL": true
+        }
+      },
+      "id": "12938ed9-f99f-4cd6-80cd-d62633a12a71",
+      "name": "TechCrunch AI",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [
+        5424,
+        5056
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://venturebeat.com/category/ai/feed/",
+        "options": {
+          "ignoreSSL": true
+        }
+      },
+      "id": "dbe8f71e-583a-49ab-b087-69f8f9a4d7e4",
+      "name": "VentureBeat AI",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [
+        5424,
+        5264
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "id": "2a32798d-66b8-4b18-ba26-ac82e44312b0",
+      "name": "Merge Feeds",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        5648,
+        5168
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nif (items.length === 0) {\n  return [];\n}\n\nconst staticData = $getWorkflowStaticData('global');\nif (!staticData.publishedPosts) {\n  staticData.publishedPosts = [];\n}\n\nconst publishedUrls = new Set(staticData.publishedPosts.map(p => p.url));\n\nconst newItems = items.filter(item => {\n  const url = item.json.link || item.json.url || '';\n  return url && !publishedUrls.has(url);\n});\n\nif (newItems.length === 0) {\n  return [];\n}\n\nconst randomIndex = Math.floor(Math.random() * Math.min(newItems.length, 10));\nconst item = newItems[randomIndex].json;\n\nconst contentTypes = ['founder_story', 'hot_take', 'case_study', 'lesson_learned', 'industry_rant'];\nconst contentType = contentTypes[Math.floor(Math.random() * contentTypes.length)];\n\nconst normalized = {\n  title: (item.title || '').slice(0, 300),\n  description: (item.contentSnippet || item.description || '').replace(/<[^>]*>/g, '').slice(0, 500),\n  url: item.link || item.url || '',\n  source: item.creator || item.author || 'Unknown',\n  contentType: contentType\n};\n\nif (!normalized.title || !normalized.url) {\n  return [];\n}\n\nreturn [{ json: normalized }];"
+      },
+      "id": "43700250-3871-473b-81b4-558172608f51",
+      "name": "Pick One Random Item",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5872,
+        5168
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4o-mini"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "Analyze this news for LinkedIn viral potential. Be harsh - only score high if truly compelling.\n\nRESPOND WITH JSON ONLY:\n{\n  \"viralScore\": 0-10,\n  \"rawAngle\": \"what makes this actually interesting to founders/agencies\",\n  \"contrarian\": \"the opposite of what most people think about this\",\n  \"personalConnection\": \"how a founder who builds AI automations would personally relate to this\",\n  \"imagePrompt\": \"abstract tech art prompt, no text, futuristic, professional\"\n}",
+              "role": "system"
+            },
+            {
+              "content": "=Title: {{ $json.title }}\nDescription: {{ $json.description }}\nSource: {{ $json.url }}"
+            }
+          ]
+        },
+        "options": {
+          "maxTokens": 250,
+          "temperature": 0.4
+        }
+      },
+      "id": "425fec83-9e05-4e8e-8381-47c19f13258c",
+      "name": "AI Score & Analyze",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        6000,
+        5168
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "AevMS99UaDEkMJw8",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst originalItem = $('Pick One Random Item').item.json;\n\nlet viralScore = 0;\nlet rawAngle = '';\nlet contrarian = '';\nlet personalConnection = '';\nlet imagePrompt = 'futuristic AI neural network, abstract digital art, blue purple gradient, professional minimalist';\n\ntry {\n  let content = response.message?.content || response.text || '';\n  content = content.replace(/```json\\n?/g, '').replace(/```/g, '').trim();\n  const parsed = JSON.parse(content);\n  viralScore = parseInt(parsed.viralScore) || 0;\n  rawAngle = parsed.rawAngle || '';\n  contrarian = parsed.contrarian || '';\n  personalConnection = parsed.personalConnection || '';\n  imagePrompt = parsed.imagePrompt || imagePrompt;\n} catch (e) {\n  viralScore = 6;\n}\n\nif (viralScore >= 6) {\n  return [{ \n    json: { \n      ...originalItem, \n      viralScore, \n      rawAngle, \n      contrarian,\n      personalConnection,\n      imagePrompt \n    } \n  }];\n} else {\n  return [];\n}"
+      },
+      "id": "629a2ce6-106a-41b1-b232-f8e0a3a06dbf",
+      "name": "Check Viral Score >= 6",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6304,
+        5168
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.reve.com/v1/image/create",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer papi.f067dd44-a11a-4f23-aa65-f0cc0ccde84b.7jwOWhibM0sDX24O3EVe56IpfhKKrWC9"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"prompt\": \"{{ $json.imagePrompt }}\"\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 120000
+        }
+      },
+      "id": "12c1784b-e1dc-4ba8-8e61-dc5b83d55cc7",
+      "name": "Generate Image (Reve AI)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        6464,
+        5328
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "GPT-4o"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "You write LinkedIn posts for the founder of Skynetlabs, an AI automation agency.\n\n═══════════════════════════════════════\nBAN LIST - NEVER USE THESE:\n═══════════════════════════════════════\n- \"I had to take a moment\"\n- \"This changes everything\"\n- \"Game-changer\"\n- \"Excited yet? I know I am\"\n- \"But wait...\"\n- \"Here's the thing...\"\n- \"Let that sink in\"\n- \"Read that again\"\n- \"Picture this\"\n- \"Imagine this\"\n- \"Marvel\" / \"Revolutionary\" / \"Groundbreaking\"\n- \"Disruptor\" / \"Disrupting\"\n- \"I couldn't help but think\"\n- \"What's more?\"\n- \"Stay tuned\"\n- Generic questions as hooks\n- Exclamation marks in hooks\n- \"In today's world\" / \"In this day and age\"\n- \"At the end of the day\"\n- \"It goes without saying\"\n- \"Needless to say\"\n- \"The fact of the matter is\"\n\n═══════════════════════════════════════\nHOOK RULES (CRITICAL)\n═══════════════════════════════════════\nThe hook is a STATEMENT, not a question.\nIt must create instant curiosity through:\n\n1. SPECIFIC NUMBERS + STAKES:\n   \"I mass $47k in 3 weeks because I ignored this.\"\n   \"4 days. 48 GPUs. One model that just embarrassed OpenAI.\"\n   \"73% of agencies will be dead by 2026. Here's why.\"\n\n2. VULNERABLE CONFESSION:\n   \"I mass built 200+ automations before I realized I was doing it wrong.\"\n   \"My biggest client fired me last month. Best thing that ever happened.\"\n   \"I mass almost mass quit this industry 6 months ago.\"\n\n3. CONTRARIAN PUNCH:\n   \"Open source just mass won. Most people haven't realized it yet.\"\n   \"Everyone's hyping AI coding tools. They're missing the real story.\"\n   \"The best developers I know aren't learning to code faster. They're learning to code less.\"\n\n4. INSIDER REVEAL:\n   \"There's a reason OpenAI is mass nervous right now.\"\n   \"What Nous Research just did in 4 days should terrify every AI company.\"\n   \"The $50M question no one's asking about open-source AI.\"\n\nNEVER start with:\n- A question\n- \"Is [something] about to [something]?\"\n- \"Have you ever wondered...\"\n- \"What if I told you...\"\n\n═══════════════════════════════════════\nBODY STRUCTURE\n═══════════════════════════════════════\nWrite like you're texting a smart friend, not writing an article.\n\nShort sentences. Fragments work.\n\nOne thought per line.\n\nUse line breaks aggressively.\n\nPattern breaks:\n- Single word lines. \"Seriously.\"\n- Numbers that hit: \"4 days. 48 B200s. Done.\"\n- Direct address: \"You're probably thinking this doesn't matter. It does.\"\n\nNO FLUFF. Every line must earn its place.\n\nInclude:\n- At least one specific detail (company name, number, timeframe)\n- One moment of \"here's what most people miss\"\n- Your actual take (agree, disagree, worried, excited - pick ONE)\n\n═══════════════════════════════════════\nCTA RULES\n═══════════════════════════════════════\nEnd with:\n1. Source link naturally: \"Full breakdown: [URL]\"\n2. One genuine question that invites debate (not \"thoughts?\")\n3. Brief mention: \"More at skynetjoe.com\"\n\nGood CTAs:\n- \"Are you mass betting on open-source or closed? I've made my choice.\"\n- \"What's your mass line for switching from GPT to open-source?\"\n- \"Founders: would this mass change your stack? Genuinely curious.\"\n\nBad CTAs:\n- \"What do you think? 👇\"\n- \"Drop your thoughts below!\"\n- \"Agree or disagree?\"\n\n═══════════════════════════════════════\nEMOJI RULES\n═══════════════════════════════════════\n- 3-5 total. MAX.\n- Never in the hook\n- Use for visual breaks, not decoration\n- 👇 only at CTA\n- No 🚀🔥💡 spam\n\n═══════════════════════════════════════\nHASHTAGS (for first comment, not post)\n═══════════════════════════════════════\n10-12 hashtags. Mix:\n- 2 broad: #AI #Startups\n- 4 medium: #AIAutomation #OpenSource #TechFounders #BuildInPublic  \n- 4 niche: #n8n #AIAgents #Skynetlabs #CodingTools\n\n═══════════════════════════════════════\nOUTPUT FORMAT\n═══════════════════════════════════════\nReturn ONLY the post text. No JSON. No labels. No \"Here's the post:\".\n\nJust the raw LinkedIn post, ready to copy-paste.\n\nAfter the post, add:\n---\nHASHTAGS: [hashtags here]\n---",
+              "role": "system"
+            },
+            {
+              "content": "=Write a LinkedIn post about this news:\n\nTOPIC: {{ $json.title }}\n\nDETAILS: {{ $json.description }}\n\nANGLE TO EXPLORE: {{ $json.rawAngle }}\n\nCONTRARIAN VIEW: {{ $json.contrarian }}\n\nPERSONAL CONNECTION: {{ $json.personalConnection }}\n\nCONTENT STYLE: {{ $json.contentType }}\n\nSOURCE URL: {{ $json.url }}\n\nRemember:\n- Hook = statement with stakes, NOT a question\n- No banned phrases\n- Write like a human, not a content mill\n- 150-200 words\n- End with source link + genuine question + skynetjoe.com"
+            }
+          ]
+        },
+        "options": {
+          "maxTokens": 800,
+          "temperature": 0.9
+        }
+      },
+      "id": "2727a1ce-20a2-429b-9c19-f3f22005f3b7",
+      "name": "AI Write Viral Post",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        6464,
+        5088
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "AevMS99UaDEkMJw8",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "id": "42619edd-cf6b-4abe-86d6-62681177c6dd",
+      "name": "Merge Post + Image",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        6688,
+        5168
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst postResponse = items[0]?.json || {};\nconst imageResponse = items[1]?.json || {};\n\nlet rawContent = postResponse.message?.content || postResponse.text || '';\n\n// Split post and hashtags\nlet postText = rawContent;\nlet hashtags = '';\n\nif (rawContent.includes('---')) {\n  const parts = rawContent.split('---');\n  postText = parts[0].trim();\n  \n  // Find hashtags section\n  for (let i = 1; i < parts.length; i++) {\n    if (parts[i].toLowerCase().includes('hashtag')) {\n      hashtags = parts[i].replace(/hashtags?:?/gi, '').trim();\n      break;\n    }\n  }\n}\n\n// Clean up any remaining artifacts\npostText = postText.replace(/^(Here's the post:|Post:|LinkedIn Post:)/gi, '').trim();\n\n// Extract image URL from Reve AI\nlet imageUrl = '';\nif (!imageResponse.error && imageResponse.data && Array.isArray(imageResponse.data) && imageResponse.data[0]) {\n  imageUrl = imageResponse.data[0].url || '';\n}\nif (!imageUrl) {\n  imageUrl = imageResponse.url || imageResponse.image_url || imageResponse.output?.url || '';\n}\nif (imageUrl && typeof imageUrl === 'string') {\n  imageUrl = imageUrl.trim();\n  if (!imageUrl.startsWith('http')) imageUrl = '';\n}\n\nreturn [{\n  json: {\n    postText: postText,\n    hashtags: hashtags,\n    imageUrl: imageUrl,\n    hasValidImage: !!(imageUrl && imageUrl.length > 10)\n  }\n}];"
+      },
+      "id": "0e810549-ad8e-410b-8d46-9f7bd2b05675",
+      "name": "Prepare Viral Post",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6848,
+        5168
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-valid-image",
+              "leftValue": "={{ $json.hasValidImage }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-has-image-node",
+      "name": "Has Valid Image?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        7008,
+        5168
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.imageUrl }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "id": "15af0cf5-08ae-497a-989d-20694a0ccca3",
+      "name": "Download Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        7200,
+        5068
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const downloadedImage = $input.first();\nconst preparedPost = $('Prepare Viral Post').item.json;\n\nif (downloadedImage.binary && Object.keys(downloadedImage.binary).length > 0) {\n  return [{\n    json: {\n      postText: preparedPost.postText,\n      hashtags: preparedPost.hashtags\n    },\n    binary: downloadedImage.binary\n  }];\n} else {\n  return [{\n    json: {\n      postText: preparedPost.postText,\n      hashtags: preparedPost.hashtags\n    }\n  }];\n}"
+      },
+      "id": "08809ca0-d890-4cdb-8daf-ece3859cfa81",
+      "name": "Combine Post + Binary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7368,
+        5068
+      ]
+    },
+    {
+      "parameters": {
+        "person": "fbb-chs7WH",
+        "text": "={{ $json.postText }}",
+        "shareMediaCategory": "IMAGE",
+        "additionalFields": {}
+      },
+      "id": "linkedin-with-image",
+      "name": "Post to LinkedIn (With Image)",
+      "type": "n8n-nodes-base.linkedIn",
+      "typeVersion": 1,
+      "position": [
+        7536,
+        5068
+      ],
+      "credentials": {
+        "linkedInOAuth2Api": {
+          "id": "o3O2LKk7w9epRLKv",
+          "name": "LinkedIn account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "person": "fbb-chs7WH",
+        "text": "={{ $json.postText }}",
+        "additionalFields": {}
+      },
+      "id": "linkedin-no-image",
+      "name": "Post to LinkedIn (Text Only)",
+      "type": "n8n-nodes-base.linkedIn",
+      "typeVersion": 1,
+      "position": [
+        7200,
+        5268
+      ],
+      "credentials": {
+        "linkedInOAuth2Api": {
+          "id": "o3O2LKk7w9epRLKv",
+          "name": "LinkedIn account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\n\nif (!staticData.publishedPosts) {\n  staticData.publishedPosts = [];\n}\n\nconst originalItem = $('Check Viral Score >= 6').item.json;\n\nstaticData.publishedPosts.push({\n  url: originalItem.url,\n  title: originalItem.title,\n  publishedAt: new Date().toISOString()\n});\n\nif (staticData.publishedPosts.length > 500) {\n  staticData.publishedPosts = staticData.publishedPosts.slice(-500);\n}\n\nreturn $input.all();"
+      },
+      "id": "save-db-1",
+      "name": "Save to Database",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7704,
+        5068
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\n\nif (!staticData.publishedPosts) {\n  staticData.publishedPosts = [];\n}\n\nconst originalItem = $('Check Viral Score >= 6').item.json;\n\nstaticData.publishedPosts.push({\n  url: originalItem.url,\n  title: originalItem.title,\n  publishedAt: new Date().toISOString()\n});\n\nif (staticData.publishedPosts.length > 500) {\n  staticData.publishedPosts = staticData.publishedPosts.slice(-500);\n}\n\nreturn $input.all();"
+      },
+      "id": "save-db-2",
+      "name": "Save to Database 2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7368,
+        5268
+      ]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "TechCrunch AI",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "VentureBeat AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TechCrunch AI": {
+      "main": [
+        [
+          {
+            "node": "Merge Feeds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "VentureBeat AI": {
+      "main": [
+        [
+          {
+            "node": "Merge Feeds",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Feeds": {
+      "main": [
+        [
+          {
+            "node": "Pick One Random Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick One Random Item": {
+      "main": [
+        [
+          {
+            "node": "AI Score & Analyze",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Score & Analyze": {
+      "main": [
+        [
+          {
+            "node": "Check Viral Score >= 6",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Viral Score >= 6": {
+      "main": [
+        [
+          {
+            "node": "AI Write Viral Post",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Generate Image (Reve AI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Image (Reve AI)": {
+      "main": [
+        [
+          {
+            "node": "Merge Post + Image",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "AI Write Viral Post": {
+      "main": [
+        [
+          {
+            "node": "Merge Post + Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Post + Image": {
+      "main": [
+        [
+          {
+            "node": "Prepare Viral Post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Viral Post": {
+      "main": [
+        [
+          {
+            "node": "Has Valid Image?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Valid Image?": {
+      "main": [
+        [
+          {
+            "node": "Download Image",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Post to LinkedIn (Text Only)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Image": {
+      "main": [
+        [
+          {
+            "node": "Combine Post + Binary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Post + Binary": {
+      "main": [
+        [
+          {
+            "node": "Post to LinkedIn (With Image)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to LinkedIn (With Image)": {
+      "main": [
+        [
+          {
+            "node": "Save to Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to LinkedIn (Text Only)": {
+      "main": [
+        [
+          {
+            "node": "Save to Database 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7fdb4387c93c5d04359a0f59d624abf43ecc71a092ce0428bcbbc3ceec6f2c36"
+  }
+}

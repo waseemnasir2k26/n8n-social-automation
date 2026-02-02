@@ -1,0 +1,556 @@
+{
+  "name": "SKYNETLABS LinkedIn Engine - SIMPLE (No Loops)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-600, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://techcrunch.com/category/artificial-intelligence/feed/",
+        "options": {
+          "ignoreSSL": true
+        }
+      },
+      "id": "rss-1",
+      "name": "TechCrunch AI",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [-380, 100]
+    },
+    {
+      "parameters": {
+        "url": "https://venturebeat.com/category/ai/feed/",
+        "options": {
+          "ignoreSSL": true
+        }
+      },
+      "id": "rss-2",
+      "name": "VentureBeat AI",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [-380, 260]
+    },
+    {
+      "parameters": {
+        "url": "https://openai.com/blog/rss.xml",
+        "options": {
+          "ignoreSSL": true
+        }
+      },
+      "id": "rss-3",
+      "name": "OpenAI Blog",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [-380, 420]
+    },
+    {
+      "parameters": {
+        "url": "https://n8n.io/blog/rss.xml",
+        "options": {
+          "ignoreSSL": true
+        }
+      },
+      "id": "rss-4",
+      "name": "n8n Blog",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [-380, 580]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "id": "merge-all",
+      "name": "Merge All Feeds",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [-100, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process all RSS items and normalize them\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const data = item.json;\n  \n  const normalized = {\n    title: (data.title || '').slice(0, 300),\n    description: (data.contentSnippet || data.description || '').replace(/<[^>]*>/g, '').slice(0, 500),\n    url: data.link || data.url || '',\n    source: data.creator || data.author || 'Unknown',\n    publishedAt: data.pubDate || data.isoDate || new Date().toISOString(),\n    hash: Buffer.from((data.title || '') + (data.link || '')).toString('base64').slice(0, 24)\n  };\n  \n  // Only include if has title and url\n  if (normalized.title && normalized.url) {\n    results.push({ json: normalized });\n  }\n}\n\n// Limit to first 10 items to avoid rate limits\nreturn results.slice(0, 10);"
+      },
+      "id": "normalize",
+      "name": "Normalize All Items",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [120, 300]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "={{ $env.AIRTABLE_BASE_ID }}",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ProcessedItems",
+          "mode": "list"
+        },
+        "filterByFormula": "={Hash}='{{ $json.hash }}'",
+        "options": {}
+      },
+      "id": "check-duplicate",
+      "name": "Check If Processed",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [340, 300],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "e0hiAgHt6nNNHNd0",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Check if this item was already processed\nconst input = $input.first().json;\nconst normalizedItem = $('Normalize All Items').item.json;\n\n// If records array is empty, it's a new item\nconst isNew = !input.records || input.records.length === 0;\n\nif (isNew) {\n  return [{ json: { ...normalizedItem, isNew: true } }];\n} else {\n  // Return empty to skip this item\n  return [];\n}"
+      },
+      "id": "filter-new",
+      "name": "Filter New Only",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [560, 300]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4o-mini"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "You are a content editor for SkynetLabs, a B2B AI automation agency.\n\nServices: AI Video, Voice Agents, Workflow Automation, CRM Automation, Social Automation, Chatbots.\n\nScore this news item for LinkedIn content potential.\n\nRESPOND WITH JSON ONLY:\n{\"score\": 0-10, \"category\": \"AI|Automation|SaaS|Business|Tech\", \"angle\": \"brief content angle\", \"reason\": \"1 sentence\"}",
+              "role": "system"
+            },
+            {
+              "content": "=Score this:\n\nTitle: {{ $json.title }}\n\nDescription: {{ $json.description }}"
+            }
+          ]
+        },
+        "options": {
+          "maxTokens": 150,
+          "temperature": 0.1
+        }
+      },
+      "id": "gpt4o-mini-filter",
+      "name": "GPT-4o-mini Filter",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [780, 300],
+      "credentials": {
+        "openAiApi": {
+          "id": "AevMS99UaDEkMJw8",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse GPT response and check score\nconst response = $input.first().json;\nconst originalItem = $('Filter New Only').item.json;\n\nlet parsed = { score: 0, category: 'Other', angle: '', reason: '' };\n\ntry {\n  let content = response.message?.content || response.text || JSON.stringify(response);\n  content = content.replace(/```json\\n?/g, '').replace(/```/g, '').trim();\n  parsed = JSON.parse(content);\n  \n  if (typeof parsed.score !== 'number') {\n    parsed.score = parseInt(parsed.score) || 0;\n  }\n  parsed.score = Math.max(0, Math.min(10, parsed.score));\n} catch (e) {\n  parsed.score = 0;\n  parsed.reason = 'Parse error';\n}\n\n// Only continue if score >= 7\nif (parsed.score >= 7) {\n  return [{\n    json: {\n      ...originalItem,\n      filter: {\n        score: parsed.score,\n        category: parsed.category || 'Other',\n        angle: parsed.angle || '',\n        reason: parsed.reason || ''\n      }\n    }\n  }];\n} else {\n  // Log to ProcessedItems and stop\n  return [];\n}"
+      },
+      "id": "parse-filter",
+      "name": "Parse & Filter Score >= 7",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1000, 300]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "GPT-4o"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "You are a ghostwriter for a B2B Tech Founder who runs SkynetLabs, a premium AI automation agency.\n\nBRAND VOICE:\n- Professional yet approachable\n- Insightful, not preachy\n- Practical over theoretical\n- Confident but not arrogant\n\nFORMAT RULES:\n- Short paragraphs (1-3 lines)\n- NO hashtags in body (add 3 at very end)\n- NO emojis\n- 150-250 words\n\nSTRUCTURE:\n1. Hook (1-2 lines) - Pattern interrupt\n2. Insight (2-3 lines) - Core observation\n3. Evidence (2-3 lines) - Data or example\n4. Takeaway (1-2 lines) - Implication\n5. CTA (1 line) - Soft question\n\nNEVER start with \"I\" or use clickbait.",
+              "role": "system"
+            },
+            {
+              "content": "=Write ONE LinkedIn post for this:\n\nTOPIC: {{ $json.title }}\nDESCRIPTION: {{ $json.description }}\nANGLE: {{ $json.filter.angle }}\n\nWrite a single compelling LinkedIn post. No variations needed."
+            }
+          ]
+        },
+        "options": {
+          "maxTokens": 800,
+          "temperature": 0.7
+        }
+      },
+      "id": "gpt4o-draft",
+      "name": "GPT-4o Write Post",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [1220, 300],
+      "credentials": {
+        "openAiApi": {
+          "id": "AevMS99UaDEkMJw8",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract the draft content\nconst response = $input.first().json;\nconst previousData = $('Parse & Filter Score >= 7').item.json;\n\nlet draft = response.message?.content || response.text || '';\ndraft = draft.trim().slice(0, 3000);\n\nconst wordCount = draft.split(/\\s+/).filter(w => w).length;\n\nreturn [{\n  json: {\n    ...previousData,\n    draft: draft,\n    wordCount: wordCount,\n    createdAt: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "parse-draft",
+      "name": "Extract Draft",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1440, 300]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "={{ $env.AIRTABLE_BASE_ID }}",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ContentDrafts",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "Draft",
+            "Source_Title": "={{ $json.title }}",
+            "Source_URL": "={{ $json.url }}",
+            "Category": "={{ $json.filter.category }}",
+            "Score": "={{ $json.filter.score }}",
+            "AI_Reason": "={{ $json.filter.reason }}\n\nAngle: {{ $json.filter.angle }}",
+            "Draft_A": "={{ $json.draft }}",
+            "Words_A": "={{ $json.wordCount }}",
+            "Hash": "={{ $json.hash }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "save-airtable",
+      "name": "Save to Airtable",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [1660, 300],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "e0hiAgHt6nNNHNd0",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "={{ $env.AIRTABLE_BASE_ID }}",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ProcessedItems",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Hash": "={{ $('Extract Draft').item.json.hash }}",
+            "Title": "={{ $('Extract Draft').item.json.title }}",
+            "Created": true
+          }
+        },
+        "options": {}
+      },
+      "id": "log-processed",
+      "name": "Log Processed",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [1880, 300],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "e0hiAgHt6nNNHNd0",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "person": "fbb-chs7WH",
+        "text": "={{ $('Extract Draft').item.json.draft }}",
+        "additionalFields": {}
+      },
+      "id": "linkedin-post",
+      "name": "Post to LinkedIn",
+      "type": "n8n-nodes-base.linkedIn",
+      "typeVersion": 1,
+      "position": [2100, 300],
+      "credentials": {
+        "linkedInOAuth2Api": {
+          "id": "o3O2LKk7w9epRLKv",
+          "name": "LinkedIn account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "={{ $env.AIRTABLE_BASE_ID }}",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ContentDrafts",
+          "mode": "list"
+        },
+        "id": "={{ $('Save to Airtable').item.json.id }}",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "Published",
+            "LinkedIn_Post_ID": "={{ $json.id || 'posted' }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "update-status",
+      "name": "Update Status",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [2320, 300],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "e0hiAgHt6nNNHNd0",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "TechCrunch AI",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "VentureBeat AI",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "OpenAI Blog",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "n8n Blog",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TechCrunch AI": {
+      "main": [
+        [
+          {
+            "node": "Merge All Feeds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "VentureBeat AI": {
+      "main": [
+        [
+          {
+            "node": "Merge All Feeds",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "OpenAI Blog": {
+      "main": [
+        [
+          {
+            "node": "Merge All Feeds",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "n8n Blog": {
+      "main": [
+        [
+          {
+            "node": "Merge All Feeds",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Merge All Feeds": {
+      "main": [
+        [
+          {
+            "node": "Normalize All Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize All Items": {
+      "main": [
+        [
+          {
+            "node": "Check If Processed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check If Processed": {
+      "main": [
+        [
+          {
+            "node": "Filter New Only",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter New Only": {
+      "main": [
+        [
+          {
+            "node": "GPT-4o-mini Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GPT-4o-mini Filter": {
+      "main": [
+        [
+          {
+            "node": "Parse & Filter Score >= 7",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse & Filter Score >= 7": {
+      "main": [
+        [
+          {
+            "node": "GPT-4o Write Post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GPT-4o Write Post": {
+      "main": [
+        [
+          {
+            "node": "Extract Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Draft": {
+      "main": [
+        [
+          {
+            "node": "Save to Airtable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Airtable": {
+      "main": [
+        [
+          {
+            "node": "Log Processed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Processed": {
+      "main": [
+        [
+          {
+            "node": "Post to LinkedIn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to LinkedIn": {
+      "main": [
+        [
+          {
+            "node": "Update Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7fdb4387c93c5d04359a0f59d624abf43ecc71a092ce0428bcbbc3ceec6f2c36"
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

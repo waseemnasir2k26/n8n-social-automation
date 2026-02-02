@@ -1,0 +1,552 @@
+{
+  "name": "SKYNETLABS LinkedIn Auto-Post System",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 8
+            }
+          ]
+        }
+      },
+      "id": "trigger-main",
+      "name": "Schedule Trigger (8hr)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [400, 500]
+    },
+    {
+      "parameters": {
+        "url": "https://n8n.io/blog/rss.xml",
+        "options": { "ignoreSSL": true }
+      },
+      "id": "rss-1",
+      "name": "RSS n8n Blog",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [640, 100],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "url": "https://www.anthropic.com/news/rss",
+        "options": { "ignoreSSL": true }
+      },
+      "id": "rss-2",
+      "name": "RSS Anthropic",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [640, 220],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "url": "https://blog.langchain.dev/rss/",
+        "options": { "ignoreSSL": true }
+      },
+      "id": "rss-3",
+      "name": "RSS LangChain",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [640, 340],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "url": "https://openai.com/blog/rss.xml",
+        "options": { "ignoreSSL": true }
+      },
+      "id": "rss-4",
+      "name": "RSS OpenAI",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [640, 460],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "url": "https://zapier.com/blog/feed/",
+        "options": { "ignoreSSL": true }
+      },
+      "id": "rss-5",
+      "name": "RSS Zapier",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [640, 580],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "url": "https://www.make.com/en/blog/rss",
+        "options": { "ignoreSSL": true }
+      },
+      "id": "rss-6",
+      "name": "RSS Make",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [640, 700],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "url": "https://www.latent.space/feed",
+        "options": { "ignoreSSL": true }
+      },
+      "id": "rss-7",
+      "name": "RSS Latent Space",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [640, 820],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "url": "https://simonwillison.net/atom/everything/",
+        "options": { "ignoreSSL": true }
+      },
+      "id": "rss-8",
+      "name": "RSS Simon Willison",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [640, 940],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "url": "https://hnrss.org/newest?q=AI+automation+agents",
+        "options": { "ignoreSSL": true }
+      },
+      "id": "rss-9",
+      "name": "RSS Hacker News AI",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [640, 1060],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "url": "https://techcrunch.com/category/artificial-intelligence/feed/",
+        "options": { "ignoreSSL": true }
+      },
+      "id": "rss-10",
+      "name": "RSS TechCrunch AI",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [640, 1180],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Collect items from ALL 10 RSS feeds\nconst allItems = [];\n\nconst feeds = [\n  { name: 'RSS n8n Blog', source: 'n8n', weight: 10 },\n  { name: 'RSS Anthropic', source: 'Anthropic', weight: 9 },\n  { name: 'RSS LangChain', source: 'LangChain', weight: 9 },\n  { name: 'RSS OpenAI', source: 'OpenAI', weight: 10 },\n  { name: 'RSS Zapier', source: 'Zapier', weight: 8 },\n  { name: 'RSS Make', source: 'Make', weight: 8 },\n  { name: 'RSS Latent Space', source: 'Latent Space', weight: 9 },\n  { name: 'RSS Simon Willison', source: 'Simon Willison', weight: 8 },\n  { name: 'RSS Hacker News AI', source: 'Hacker News', weight: 7 },\n  { name: 'RSS TechCrunch AI', source: 'TechCrunch', weight: 7 }\n];\n\n// Keywords that boost relevance score\nconst hotKeywords = [\n  'automation', 'workflow', 'agent', 'agents', 'ai agent',\n  'n8n', 'zapier', 'make', 'integromat', 'gohighlevel',\n  'claude', 'gpt-4', 'gpt4', 'chatgpt', 'openai',\n  'langchain', 'llm', 'api', 'no-code', 'nocode', 'low-code',\n  'productivity', 'saas', 'startup', 'founder', 'agency',\n  'automate', 'integration', 'crm', 'lead', 'sales',\n  'prompt', 'embedding', 'vector', 'rag', 'fine-tune'\n];\n\nfor (const feed of feeds) {\n  try {\n    const items = $(feed.name).all();\n    items.forEach(item => {\n      if (item.json.title) {\n        const title = (item.json.title || '').toLowerCase();\n        const content = (item.json.contentSnippet || item.json.description || '').toLowerCase();\n        const combined = title + ' ' + content;\n        \n        // Calculate relevance score\n        let relevanceScore = feed.weight;\n        \n        for (const keyword of hotKeywords) {\n          if (combined.includes(keyword)) {\n            relevanceScore += 2;\n          }\n        }\n        \n        // Boost for action words\n        if (combined.includes('how to')) relevanceScore += 3;\n        if (combined.includes('guide')) relevanceScore += 2;\n        if (combined.includes('tutorial')) relevanceScore += 2;\n        if (combined.includes('new')) relevanceScore += 1;\n        if (combined.includes('launch')) relevanceScore += 2;\n        if (combined.includes('release')) relevanceScore += 2;\n        \n        allItems.push({\n          title: item.json.title || '',\n          content: (item.json.contentSnippet || item.json.description || '')\n            .replace(/<[^>]*>/g, '')\n            .slice(0, 1000),\n          source: feed.source,\n          link: item.json.link || item.json.url || '',\n          pubDate: item.json.pubDate || item.json.isoDate || '',\n          relevanceScore: relevanceScore\n        });\n      }\n    });\n  } catch(e) {\n    // Feed failed, continue with others\n  }\n}\n\nif (allItems.length === 0) {\n  return [{ json: { error: 'No RSS items found from any feed' } }];\n}\n\n// Sort by relevance score (highest first)\nallItems.sort((a, b) => b.relevanceScore - a.relevanceScore);\n\n// Pick from top 5 most relevant (with slight randomness)\nconst topItems = allItems.slice(0, 5);\nconst randomIndex = Math.floor(Math.random() * topItems.length);\nconst selected = topItems[randomIndex];\n\nreturn [{ json: selected }];"
+      },
+      "id": "collect-rss",
+      "name": "Collect All & Pick Best",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 500]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "has-title",
+              "leftValue": "={{ $json.title }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-has-content",
+      "name": "Has Content?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1120, 500]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "GPT-4o"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "You are a VIRAL LinkedIn content creator for Skynetlabs, an elite AI automation agency. Your posts get MASSIVE engagement.\n\n══════════════════════════════════════\n🎯 POST STRUCTURE\n══════════════════════════════════════\n\n1️⃣ HOOK (First 2 lines) - STOP THE SCROLL\n   • Start with a BOLD statement or shocking insight\n   • Use pattern interrupts\n   • Create curiosity gap\n   \n   Examples:\n   🔥 \"I automated a $2M agency with just 7 workflows.\"\n   💡 \"Stop building AI agents. Start building AI systems.\"\n   🚀 \"This one automation saved my client 47 hours/week.\"\n   ⚡ \"Everyone's using ChatGPT wrong. Here's the fix.\"\n\n2️⃣ BODY (Main content)\n   • Short punchy sentences\n   • One idea per line\n   • Use line breaks generously\n   • Add relevant emojis to key points ✨\n   • Include a mini-story or real example\n   • Drop a contrarian insight\n\n3️⃣ VALUE BOMB 💣\n   • Share ONE actionable tip\n   • Make it specific and implementable\n   • Something they can use TODAY\n\n4️⃣ CALL TO ACTION\n   • Ask an engaging question\n   • Invite discussion\n   • Example: \"What's the ONE task you'd automate first? 👇\"\n\n══════════════════════════════════════\n✨ EMOJI GUIDE (USE THESE!)\n══════════════════════════════════════\n🔥 Fire - for hot takes\n💡 Lightbulb - for insights\n🚀 Rocket - for growth/speed\n⚡ Lightning - for power moves\n🎯 Target - for precision/goals\n💰 Money - for revenue/savings\n🤖 Robot - for AI/automation\n📈 Chart - for results\n✅ Check - for lists/wins\n❌ X - for mistakes/don'ts\n👇 Down - for CTA\n💬 Speech - for engagement\n🧠 Brain - for smart insights\n⏰ Clock - for time savings\n🔑 Key - for key points\n\nUse 8-12 emojis throughout the post!\n\n══════════════════════════════════════\n📝 FORMATTING RULES\n══════════════════════════════════════\n• 150-250 words\n• Short paragraphs (1-3 lines max)\n• Lots of white space\n• Use → arrows for flow\n• Use • bullets sparingly for lists\n\n══════════════════════════════════════\n🏷️ HASHTAGS (10-15 AT THE END)\n══════════════════════════════════════\nAlways include these + topic-relevant ones:\n\n#AI #AIAutomation #Automation #n8n #NoCode \n#ArtificialIntelligence #FutureOfWork #TechStartup \n#AgencyLife #BuildInPublic #Productivity #WorkSmarter\n#AITools #DigitalTransformation #Innovation\n#Entrepreneur #StartupLife #BusinessAutomation\n#AIAgents #Workflow #SaaS #GrowthHacking\n\nPick 10-15 relevant ones!\n\n══════════════════════════════════════\n🚫 NEVER DO THIS\n══════════════════════════════════════\n• Don't be boring or generic\n• Don't use corporate jargon\n• Don't write walls of text\n• Don't forget the hook\n• Don't skip the CTA\n\n══════════════════════════════════════\n✅ OUTPUT FORMAT\n══════════════════════════════════════\nReturn ONLY the LinkedIn post.\nNo explanations. No labels.\nJust the post ready to copy-paste.\n\nMake it SCROLL-STOPPING! 🔥",
+              "role": "system"
+            },
+            {
+              "content": "=Create a VIRAL LinkedIn post inspired by:\n\n📰 TOPIC: {{ $json.title }}\n\n📝 DETAILS: {{ $json.content }}\n\n🔗 SOURCE: {{ $json.source }}\n\nMake it AMAZING! Add your unique spin. Connect it to AI automation, productivity, or agency growth. Make people STOP scrolling!"
+            }
+          ]
+        },
+        "options": {
+          "maxTokens": 800,
+          "temperature": 0.95
+        }
+      },
+      "id": "ai-generate",
+      "name": "AI Generate Post",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [1340, 420],
+      "credentials": {
+        "openAiApi": {
+          "id": "AevMS99UaDEkMJw8",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const aiResponse = $input.first().json;\nconst originalItem = $('Has Content?').first().json;\n\nlet postText = aiResponse.message?.content || aiResponse.text || '';\n\n// Clean up any AI artifacts\npostText = postText\n  .replace(/^(Here's the post:|Post:|LinkedIn Post:|Here's a LinkedIn post:|Here is|Here's your|Here's the viral)/gi, '')\n  .replace(/```/g, '')\n  .trim();\n\n// Validate\nconst wordCount = postText.split(/\\s+/).filter(w => w.length > 0).length;\n\nif (wordCount < 30 || !postText) {\n  return [];\n}\n\n// Create simple hash\nconst simpleHash = postText.slice(0, 50).replace(/[^a-zA-Z0-9]/g, '').toLowerCase() + '_' + wordCount;\n\nreturn [{\n  json: {\n    date_added: new Date().toISOString(),\n    source_feed: originalItem.source || 'Unknown',\n    original_topic: originalItem.title || '',\n    content_hash: simpleHash,\n    linkedin_post: postText,\n    word_count: wordCount,\n    relevance_score: originalItem.relevanceScore || 0,\n    approval_status: '',\n    posted_status: 'No',\n    posted_time: '',\n    linkedin_post_id: ''\n  }\n}];"
+      },
+      "id": "prepare-post",
+      "name": "Prepare Post",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 420]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1GBikylRAyPOmmTcy8G0F9G__AMbMmNHpaNw-YBNDIgc",
+          "mode": "list",
+          "cachedResultName": "SM Database"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "date_added": "={{ $json.date_added }}",
+            "source_feed": "={{ $json.source_feed }}",
+            "original_topic": "={{ $json.original_topic }}",
+            "content_hash": "={{ $json.content_hash }}",
+            "linkedin_post": "={{ $json.linkedin_post }}",
+            "word_count": "={{ $json.word_count }}",
+            "approval_status": "",
+            "posted_status": "No",
+            "posted_time": "",
+            "linkedin_post_id": ""
+          },
+          "matchingColumns": [],
+          "schema": [
+            { "id": "date_added", "displayName": "date_added", "type": "string" },
+            { "id": "source_feed", "displayName": "source_feed", "type": "string" },
+            { "id": "original_topic", "displayName": "original_topic", "type": "string" },
+            { "id": "content_hash", "displayName": "content_hash", "type": "string" },
+            { "id": "linkedin_post", "displayName": "linkedin_post", "type": "string" },
+            { "id": "word_count", "displayName": "word_count", "type": "string" },
+            { "id": "approval_status", "displayName": "approval_status", "type": "string" },
+            { "id": "posted_status", "displayName": "posted_status", "type": "string" },
+            { "id": "posted_time", "displayName": "posted_time", "type": "string" },
+            { "id": "linkedin_post_id", "displayName": "linkedin_post_id", "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "save-draft",
+      "name": "Save Draft to Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [1780, 420],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "saZ3kdmtxT2N7QN5",
+          "name": "waseemhome8"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "1GBikylRAyPOmmTcy8G0F9G__AMbMmNHpaNw-YBNDIgc",
+          "mode": "list",
+          "cachedResultName": "SM Database"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1"
+        },
+        "options": {}
+      },
+      "id": "read-approved",
+      "name": "Read All Posts",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [2000, 420],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "saZ3kdmtxT2N7QN5",
+          "name": "waseemhome8"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const allPosts = $input.all();\n\n// Find posts that are Approved but not yet Posted\nconst approvedNotPosted = allPosts.filter(post => {\n  const status = (post.json.approval_status || '').toLowerCase().trim();\n  const posted = (post.json.posted_status || '').toLowerCase().trim();\n  const hasPost = post.json.linkedin_post && post.json.linkedin_post.length > 20;\n  \n  return status === 'approved' && posted !== 'yes' && hasPost;\n});\n\nif (approvedNotPosted.length === 0) {\n  return []; // Nothing to post\n}\n\n// Get the first (oldest) approved post\nconst postToPublish = approvedNotPosted[0];\n\nreturn [{\n  json: {\n    ...postToPublish.json\n  }\n}];"
+      },
+      "id": "find-approved",
+      "name": "Find Approved Post",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2220, 420]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "has-post-to-publish",
+              "leftValue": "={{ $json.linkedin_post }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-approved-exists",
+      "name": "Has Approved Post?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2440, 420]
+    },
+    {
+      "parameters": {
+        "person": "fbb-chs7WH",
+        "text": "={{ $json.linkedin_post }}",
+        "additionalFields": {}
+      },
+      "id": "linkedin-post",
+      "name": "Post to LinkedIn",
+      "type": "n8n-nodes-base.linkedIn",
+      "typeVersion": 1,
+      "position": [2660, 340],
+      "credentials": {
+        "linkedInOAuth2Api": {
+          "id": "o3O2LKk7w9epRLKv",
+          "name": "LinkedIn account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const linkedInResponse = $input.first().json;\nconst postData = $('Has Approved Post?').first().json;\n\nreturn [{\n  json: {\n    content_hash: postData.content_hash,\n    posted_status: 'Yes',\n    posted_time: new Date().toISOString(),\n    linkedin_post_id: linkedInResponse.id || linkedInResponse.updateKey || 'posted-' + Date.now()\n  }\n}];"
+      },
+      "id": "prepare-update",
+      "name": "Prepare Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2880, 340]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1GBikylRAyPOmmTcy8G0F9G__AMbMmNHpaNw-YBNDIgc",
+          "mode": "list",
+          "cachedResultName": "SM Database"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "content_hash": "={{ $json.content_hash }}",
+            "posted_status": "={{ $json.posted_status }}",
+            "posted_time": "={{ $json.posted_time }}",
+            "linkedin_post_id": "={{ $json.linkedin_post_id }}"
+          },
+          "matchingColumns": ["content_hash"],
+          "schema": [
+            { "id": "content_hash", "displayName": "content_hash", "type": "string", "required": true, "canBeUsedToMatch": true, "defaultMatch": true },
+            { "id": "posted_status", "displayName": "posted_status", "type": "string" },
+            { "id": "posted_time", "displayName": "posted_time", "type": "string" },
+            { "id": "linkedin_post_id", "displayName": "linkedin_post_id", "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "update-sheet",
+      "name": "Mark as Posted",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [3100, 340],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "saZ3kdmtxT2N7QN5",
+          "name": "waseemhome8"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "no-op-end",
+      "name": "No Approved Posts",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [2660, 500]
+    },
+    {
+      "parameters": {},
+      "id": "no-op-no-content",
+      "name": "No Content Found",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1340, 580]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger (8hr)": {
+      "main": [
+        [
+          { "node": "RSS n8n Blog", "type": "main", "index": 0 },
+          { "node": "RSS Anthropic", "type": "main", "index": 0 },
+          { "node": "RSS LangChain", "type": "main", "index": 0 },
+          { "node": "RSS OpenAI", "type": "main", "index": 0 },
+          { "node": "RSS Zapier", "type": "main", "index": 0 },
+          { "node": "RSS Make", "type": "main", "index": 0 },
+          { "node": "RSS Latent Space", "type": "main", "index": 0 },
+          { "node": "RSS Simon Willison", "type": "main", "index": 0 },
+          { "node": "RSS Hacker News AI", "type": "main", "index": 0 },
+          { "node": "RSS TechCrunch AI", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "RSS n8n Blog": {
+      "main": [
+        [{ "node": "Collect All & Pick Best", "type": "main", "index": 0 }]
+      ]
+    },
+    "RSS Anthropic": {
+      "main": [
+        [{ "node": "Collect All & Pick Best", "type": "main", "index": 0 }]
+      ]
+    },
+    "RSS LangChain": {
+      "main": [
+        [{ "node": "Collect All & Pick Best", "type": "main", "index": 0 }]
+      ]
+    },
+    "RSS OpenAI": {
+      "main": [
+        [{ "node": "Collect All & Pick Best", "type": "main", "index": 0 }]
+      ]
+    },
+    "RSS Zapier": {
+      "main": [
+        [{ "node": "Collect All & Pick Best", "type": "main", "index": 0 }]
+      ]
+    },
+    "RSS Make": {
+      "main": [
+        [{ "node": "Collect All & Pick Best", "type": "main", "index": 0 }]
+      ]
+    },
+    "RSS Latent Space": {
+      "main": [
+        [{ "node": "Collect All & Pick Best", "type": "main", "index": 0 }]
+      ]
+    },
+    "RSS Simon Willison": {
+      "main": [
+        [{ "node": "Collect All & Pick Best", "type": "main", "index": 0 }]
+      ]
+    },
+    "RSS Hacker News AI": {
+      "main": [
+        [{ "node": "Collect All & Pick Best", "type": "main", "index": 0 }]
+      ]
+    },
+    "RSS TechCrunch AI": {
+      "main": [
+        [{ "node": "Collect All & Pick Best", "type": "main", "index": 0 }]
+      ]
+    },
+    "Collect All & Pick Best": {
+      "main": [
+        [{ "node": "Has Content?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Has Content?": {
+      "main": [
+        [{ "node": "AI Generate Post", "type": "main", "index": 0 }],
+        [{ "node": "No Content Found", "type": "main", "index": 0 }]
+      ]
+    },
+    "AI Generate Post": {
+      "main": [
+        [{ "node": "Prepare Post", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prepare Post": {
+      "main": [
+        [{ "node": "Save Draft to Sheet", "type": "main", "index": 0 }]
+      ]
+    },
+    "Save Draft to Sheet": {
+      "main": [
+        [{ "node": "Read All Posts", "type": "main", "index": 0 }]
+      ]
+    },
+    "Read All Posts": {
+      "main": [
+        [{ "node": "Find Approved Post", "type": "main", "index": 0 }]
+      ]
+    },
+    "Find Approved Post": {
+      "main": [
+        [{ "node": "Has Approved Post?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Has Approved Post?": {
+      "main": [
+        [{ "node": "Post to LinkedIn", "type": "main", "index": 0 }],
+        [{ "node": "No Approved Posts", "type": "main", "index": 0 }]
+      ]
+    },
+    "Post to LinkedIn": {
+      "main": [
+        [{ "node": "Prepare Update", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prepare Update": {
+      "main": [
+        [{ "node": "Mark as Posted", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7fdb4387c93c5d04359a0f59d624abf43ecc71a092ce0428bcbbc3ceec6f2c36"
+  }
+}
