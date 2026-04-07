@@ -182,3 +182,31 @@ MIT License - see [LICENSE](LICENSE) for details.
   <b>Built by <a href="https://www.skynetjoe.com">Skynetlabs</a></b><br>
   AI Automation & Systems Studio
 </p>
+
+---
+
+<!-- SEO-HIRE-ME-BLOCK -->
+
+## Hire Me
+
+> **Need n8n workflows or social media automation built for you?**
+
+I'm **Waseem Nasir** — founder of [Skynet Labs / SkynetJoe](https://www.skynetjoe.com), an AI Automation Agency. Custom n8n workflows, GoHighLevel automations, multi-platform posting, AI agents.
+
+**50+ live projects across:** Healthcare · Legal · Real Estate · E-Commerce · Logistics · HVAC · SaaS · Consulting
+
+### Hire me
+- 📅 **[Book a free strategy call](https://calendly.com/skynetlabs/schedule-a-free-consultation)**
+- 💼 **[Hire on Fiverr](https://fiverr.com/agencies/skynetjoellc)**
+- 🌐 **[skynetjoe.com](https://www.skynetjoe.com)**
+- 📧 **info@skynetjoe.com**
+- 💬 **[WhatsApp](https://wa.me/923001001957)**
+
+### Related projects on my GitHub
+- [aeo-content-engine](https://github.com/waseemnasir2k26/aeo-content-engine)
+- [social-media-dashboard](https://github.com/waseemnasir2k26/social-media-dashboard)
+- [ai-motivational-posts](https://github.com/waseemnasir2k26/ai-motivational-posts)
+- [→ See all 50+ projects](https://github.com/waseemnasir2k26)
+
+### Tags
+`AI automation` · `n8n` · `GoHighLevel` · `Claude Code` · `Next.js` · `React` · `Python` · `freelance` · `hire me` · `agency`
