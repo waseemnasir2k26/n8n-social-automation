@@ -2,6 +2,10 @@
 
 > Ready-to-import n8n workflows for LinkedIn and Instagram automation.
 
+## Status
+
+Last reviewed: September 2026 · release v2026.09
+
 Automate your social media presence with AI-powered content generation and posting workflows.
 
 ![n8n](https://img.shields.io/badge/n8n-Workflows-EA4B71?style=for-the-badge&logo=n8n&logoColor=white)
